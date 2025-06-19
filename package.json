@@ -1,0 +1,40 @@
+{
+  "name": "gologin-mcp",
+  "version": "1.0.0",
+  "description": "MCP server that downloads API specs and builds tools from them",
+  "main": "dist/index.js",
+  "bin": {
+    "gologin-mcp": "dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && node dist/index.js",
+    "dev": "tsc --watch & node --watch dist/index.js",
+    "test": "npm run build && node test-server.js",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0",
+    "js-yaml": "^4.1.0",
+    "swagger-parser": "^10.0.3",
+    "openapi-types": "^12.1.3"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "anti-detect browser",
+    "gologin",
+    "mcp",
+    "openapi",
+    "api-tools",
+    "swagger",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT"
+}
