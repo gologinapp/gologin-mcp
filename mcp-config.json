@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "gologin-mcp": {
+      "command": "npx",
+      "args": [
+        "gologin-mcp"
+      ],
+      "env": {
+        "API_TOKEN": "your-gologin-api-token-here"
+      }
+    }
+  }
+}
