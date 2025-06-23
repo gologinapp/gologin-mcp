@@ -284,7 +284,8 @@ class GologinMcpServer {
 
   private getSchemaType(schema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject): string {
     if ('$ref' in schema) {
-      return 'object';
+      const resolved = this.resolveReference(schema.$ref);
+      return resolved.type || 'object';
     }
 
     const schemaObj = schema as OpenAPIV3.SchemaObject;
@@ -293,7 +294,7 @@ class GologinMcpServer {
 
   private convertOpenAPISchemaToJsonSchema(schema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject): any {
     if ('$ref' in schema) {
-      return { type: 'object' };
+      return this.resolveReference(schema.$ref);
     }
 
     const schemaObj = schema as OpenAPIV3.SchemaObject;
@@ -320,7 +321,52 @@ class GologinMcpServer {
       jsonSchema.items = this.convertOpenAPISchemaToJsonSchema(schemaObj.items);
     }
 
+    if (schemaObj.enum) {
+      jsonSchema.enum = schemaObj.enum;
+    }
+
+    if (schemaObj.format) {
+      jsonSchema.format = schemaObj.format;
+    }
+
+    if (schemaObj.minimum !== undefined) {
+      jsonSchema.minimum = schemaObj.minimum;
+    }
+
+    if (schemaObj.maximum !== undefined) {
+      jsonSchema.maximum = schemaObj.maximum;
+    }
+
+    if (schemaObj.pattern) {
+      jsonSchema.pattern = schemaObj.pattern;
+    }
+
     return jsonSchema;
+  }
+
+  private resolveReference(ref: string): any {
+    if (!this.apiSpec) {
+      return { type: 'object' };
+    }
+
+    const parts = ref.split('/');
+    if (parts[0] !== '#') {
+      return { type: 'object' };
+    }
+
+    let current: any = this.apiSpec;
+    for (let i = 1; i < parts.length; i++) {
+      if (!current || typeof current !== 'object') {
+        return { type: 'object' };
+      }
+      current = current[parts[i]];
+    }
+
+    if (!current) {
+      return { type: 'object' };
+    }
+
+    return this.convertOpenAPISchemaToJsonSchema(current);
   }
 
   private async callDynamicTool(
