@@ -1,14 +1,17 @@
 {
   "name": "gologin-mcp",
-  "version": "1.0.0",
-  "description": "MCP server that downloads API specs and builds tools from them",
+  "version": "0.0.7",
+  "description": "MCP server that connects to the GoLogin API",
   "main": "dist/index.js",
   "bin": {
     "gologin-mcp": "dist/index.js"
   },
+  "engines": {
+    "node": ">=14.0.0"
+  },
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod +x dist/index.js",
     "start": "npm run build && node dist/index.js",
     "dev": "tsc --watch & node --watch dist/index.js",
     "test": "npm run build && node test-server.js",
@@ -24,7 +27,8 @@
   "devDependencies": {
     "@types/js-yaml": "^4.0.0",
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "esbuild": "^0.19.0"
   },
   "keywords": [
     "anti-detect browser",

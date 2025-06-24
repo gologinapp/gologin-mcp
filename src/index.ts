@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -53,30 +54,12 @@ class GologinMcpServer {
               const op = operation as OpenAPIV3.OperationObject;
               const toolName = op.operationId || `${method}_${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
+              const inputSchema = this.buildInputSchema(op, path);
+
               tools.push({
                 name: toolName,
                 description: op.summary || op.description || `${method.toUpperCase()} ${path}`,
-                inputSchema: {
-                  type: 'object',
-                  properties: {
-                    path: {
-                      type: 'object',
-                      description: 'Path parameters for URL substitution',
-                    },
-                    query: {
-                      type: 'object',
-                      description: 'Query parameters',
-                    },
-                    body: {
-                      type: 'object',
-                      description: 'Request body parameters',
-                    },
-                    headers: {
-                      type: 'object',
-                      description: 'Additional headers for the request',
-                    },
-                  },
-                },
+                inputSchema,
               });
             }
           }
@@ -138,6 +121,252 @@ class GologinMcpServer {
 
     this.apiSpec = spec;
     this.baseUrl = this.getBaseUrl(spec);
+  }
+
+  private buildInputSchema(operation: OpenAPIV3.OperationObject, path: string): any {
+    const schema: any = {
+      type: 'object',
+      properties: {},
+      required: [],
+    };
+
+    const pathParams = this.extractPathParameters(operation, path);
+    const queryParams = this.extractQueryParameters(operation);
+    const bodySchema = this.extractRequestBodySchema(operation);
+    const requiredHeaders = this.extractRequiredHeaders(operation);
+
+    if (pathParams.properties && Object.keys(pathParams.properties).length > 0) {
+      schema.properties.path = {
+        type: 'object',
+        properties: pathParams.properties,
+        description: 'Path parameters for URL substitution',
+      };
+      if (pathParams.required.length > 0) {
+        schema.properties.path.required = pathParams.required;
+        schema.required.push('path');
+      }
+    }
+
+    if (queryParams.properties && Object.keys(queryParams.properties).length > 0) {
+      schema.properties.query = {
+        type: 'object',
+        properties: queryParams.properties,
+        description: 'Query parameters',
+      };
+      if (queryParams.required.length > 0) {
+        schema.properties.query.required = queryParams.required;
+        if (queryParams.required.length === Object.keys(queryParams.properties).length) {
+          schema.required.push('query');
+        }
+      }
+    }
+
+    if (bodySchema) {
+      schema.properties.body = {
+        ...bodySchema,
+        description: 'Request body parameters',
+      };
+      schema.required.push('body');
+    }
+
+    if (requiredHeaders.length > 0) {
+      schema.properties.headers = {
+        type: 'object',
+        properties: {},
+        required: requiredHeaders,
+        description: 'Additional headers for the request',
+      };
+      schema.required.push('headers');
+    } else {
+      schema.properties.headers = {
+        type: 'object',
+        description: 'Additional headers for the request',
+      };
+    }
+
+    return schema;
+  }
+
+  private extractPathParameters(operation: OpenAPIV3.OperationObject, path: string): { properties: any; required: string[] } {
+    const properties: any = {};
+    const required: string[] = [];
+
+    const pathParamNames = path.match(/\{([^}]+)\}/g)?.map(p => p.slice(1, -1)) || [];
+
+    if (operation.parameters) {
+      operation.parameters.forEach(param => {
+        if ('$ref' in param) return;
+
+        const parameter = param as OpenAPIV3.ParameterObject;
+        if (parameter.in === 'path') {
+          properties[parameter.name] = {
+            type: parameter.schema ? this.getSchemaType(parameter.schema) : 'string',
+            description: parameter.description || '',
+          };
+          if (parameter.required) {
+            required.push(parameter.name);
+          }
+        }
+      });
+    }
+
+    pathParamNames.forEach(paramName => {
+      if (!properties[paramName]) {
+        properties[paramName] = {
+          type: 'string',
+          description: `Path parameter: ${paramName}`,
+        };
+        required.push(paramName);
+      }
+    });
+
+    return { properties, required };
+  }
+
+  private extractQueryParameters(operation: OpenAPIV3.OperationObject): { properties: any; required: string[] } {
+    const properties: any = {};
+    const required: string[] = [];
+
+    if (operation.parameters) {
+      operation.parameters.forEach(param => {
+        if ('$ref' in param) return;
+
+        const parameter = param as OpenAPIV3.ParameterObject;
+        if (parameter.in === 'query') {
+          properties[parameter.name] = {
+            type: parameter.schema ? this.getSchemaType(parameter.schema) : 'string',
+            description: parameter.description || '',
+          };
+          if (parameter.required) {
+            required.push(parameter.name);
+          }
+        }
+      });
+    }
+
+    return { properties, required };
+  }
+
+  private extractRequestBodySchema(operation: OpenAPIV3.OperationObject): any | null {
+    if (!operation.requestBody || '$ref' in operation.requestBody) {
+      return null;
+    }
+
+    const requestBody = operation.requestBody as OpenAPIV3.RequestBodyObject;
+    if (!requestBody.content) {
+      return null;
+    }
+
+    const jsonContent = requestBody.content['application/json'];
+    if (!jsonContent || !jsonContent.schema) {
+      return null;
+    }
+
+    return this.convertOpenAPISchemaToJsonSchema(jsonContent.schema);
+  }
+
+  private extractRequiredHeaders(operation: OpenAPIV3.OperationObject): string[] {
+    const required: string[] = [];
+
+    if (operation.parameters) {
+      operation.parameters.forEach(param => {
+        if ('$ref' in param) return;
+
+        const parameter = param as OpenAPIV3.ParameterObject;
+        if (parameter.in === 'header' && parameter.required) {
+          required.push(parameter.name);
+        }
+      });
+    }
+
+    return required;
+  }
+
+  private getSchemaType(schema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject): string {
+    if ('$ref' in schema) {
+      const resolved = this.resolveReference(schema.$ref);
+      return resolved.type || 'object';
+    }
+
+    const schemaObj = schema as OpenAPIV3.SchemaObject;
+    return schemaObj.type || 'string';
+  }
+
+  private convertOpenAPISchemaToJsonSchema(schema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject): any {
+    if ('$ref' in schema) {
+      return this.resolveReference(schema.$ref);
+    }
+
+    const schemaObj = schema as OpenAPIV3.SchemaObject;
+    const jsonSchema: any = {
+      type: schemaObj.type || 'object',
+    };
+
+    if (schemaObj.properties) {
+      jsonSchema.properties = {};
+      Object.entries(schemaObj.properties).forEach(([key, prop]) => {
+        jsonSchema.properties[key] = this.convertOpenAPISchemaToJsonSchema(prop);
+      });
+    }
+
+    if (schemaObj.required) {
+      jsonSchema.required = schemaObj.required;
+    }
+
+    if (schemaObj.description) {
+      jsonSchema.description = schemaObj.description;
+    }
+
+    if (schemaObj.type === 'array' && 'items' in schemaObj && schemaObj.items) {
+      jsonSchema.items = this.convertOpenAPISchemaToJsonSchema(schemaObj.items);
+    }
+
+    if (schemaObj.enum) {
+      jsonSchema.enum = schemaObj.enum;
+    }
+
+    if (schemaObj.format) {
+      jsonSchema.format = schemaObj.format;
+    }
+
+    if (schemaObj.minimum !== undefined) {
+      jsonSchema.minimum = schemaObj.minimum;
+    }
+
+    if (schemaObj.maximum !== undefined) {
+      jsonSchema.maximum = schemaObj.maximum;
+    }
+
+    if (schemaObj.pattern) {
+      jsonSchema.pattern = schemaObj.pattern;
+    }
+
+    return jsonSchema;
+  }
+
+  private resolveReference(ref: string): any {
+    if (!this.apiSpec) {
+      return { type: 'object' };
+    }
+
+    const parts = ref.split('/');
+    if (parts[0] !== '#') {
+      return { type: 'object' };
+    }
+
+    let current: any = this.apiSpec;
+    for (let i = 1; i < parts.length; i++) {
+      if (!current || typeof current !== 'object') {
+        return { type: 'object' };
+      }
+      current = current[parts[i]];
+    }
+
+    if (!current) {
+      return { type: 'object' };
+    }
+
+    return this.convertOpenAPISchemaToJsonSchema(current);
   }
 
   private async callDynamicTool(
