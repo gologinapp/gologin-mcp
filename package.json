@@ -1,6 +1,6 @@
 {
   "name": "gologin-mcp",
-  "version": "0.0.5",
+  "version": "0.0.7",
   "description": "MCP server that connects to the GoLogin API",
   "main": "dist/index.js",
   "bin": {
