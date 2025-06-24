@@ -2,6 +2,10 @@
 
 Manage your GoLogin browser profiles and automation directly through AI conversations. This MCP server connects to the GoLogin API, letting you create, configure, and control browser profiles using natural language.
 
+<a href="https://glama.ai/mcp/servers/@gologinapp/gologin-mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@gologinapp/gologin-mcp/badge" alt="GoLogin MCP server" />
+</a>
+
 ## What You Can Do
 
 With GoLogin MCP Server, you can:
