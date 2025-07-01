@@ -45,6 +45,47 @@ class GologinMcpServer {
   private setupHandlers(): void {
     this.server.setRequestHandler(ListToolsRequestSchema, async (): Promise<ListToolsResult> => {
       const tools: Tool[] = [];
+
+      // Add batch operations tool
+      tools.push({
+        name: 'batch_operations',
+        description: 'Execute multiple API operations in batch. Supports creating multiple profiles, updating multiple proxies, etc.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            operation: {
+              type: 'string',
+              enum: ['create_profiles'],
+              description: 'The type of batch operation to perform'
+            },
+            count: {
+              type: 'number',
+              description: 'Number of operations to perform (for create/clone operations)',
+              minimum: 1,
+              maximum: 50
+            },
+            template: {
+              type: 'object',
+              description: 'Template parameters to use for each operation (for create operations)'
+            },
+            profileIds: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Array of profile IDs (for update/delete operations)'
+            },
+            updates: {
+              type: 'object',
+              description: 'Updates to apply to each item (for update operations)'
+            },
+            namePrefix: {
+              type: 'string',
+              description: 'Prefix for generated names (optional, defaults to "Profile")'
+            }
+          },
+          required: ['operation']
+        }
+      });
+
       if (this.apiSpec && this.apiSpec.paths) {
         for (const [path, pathItem] of Object.entries(this.apiSpec.paths)) {
           if (!pathItem) continue;
@@ -52,7 +93,22 @@ class GologinMcpServer {
           for (const [method, operation] of Object.entries(pathItem)) {
             if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(method) && operation) {
               const op = operation as OpenAPIV3.OperationObject;
-              const toolName = op.operationId || `${method}_${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+              let toolName = op.operationId || `${method}_${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
+              if (op.summary) {
+                // Convert summary to a valid tool name (replace non-alphanumeric with underscores, remove spaces)
+                toolName = op.summary.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_').toLowerCase();
+              }
+
+              // Exclude specific tools
+              const excludedTools = [
+                'create_profile',
+                'create_profile_with_partial_parameters',
+              ];
+
+              if (excludedTools.includes(toolName)) {
+                continue;
+              }
 
               const inputSchema = this.buildInputSchema(op, path);
 
@@ -77,6 +133,11 @@ class GologinMcpServer {
       }
 
       try {
+        // Handle batch operations tool
+        if (name === 'batch_operations') {
+          return await this.handleBatchOperations(args);
+        }
+
         const parameters: CallParameters = {
           path: args.path as Record<string, string> | undefined,
           query: args.query as Record<string, string> | undefined,
@@ -369,6 +430,227 @@ class GologinMcpServer {
     return this.convertOpenAPISchemaToJsonSchema(current);
   }
 
+  private validateParameters(
+    operation: OpenAPIV3.OperationObject,
+    path: string,
+    parameters: CallParameters,
+    headers: Record<string, string>
+  ): string[] {
+    const errors: string[] = [];
+
+    // Validate path parameters
+    const pathParams = this.extractPathParameters(operation, path);
+    if (pathParams.required.length > 0) {
+      if (!parameters.path) {
+        errors.push(`Missing required path parameters: ${pathParams.required.join(', ')}`);
+      } else {
+        for (const requiredParam of pathParams.required) {
+          if (!parameters.path[requiredParam]) {
+            errors.push(`Missing required path parameter: ${requiredParam}`);
+          }
+        }
+      }
+    }
+
+    const queryParams = this.extractQueryParameters(operation);
+    if (queryParams.required.length > 0) {
+      if (!parameters.query) {
+        errors.push(`Missing required query parameters: ${queryParams.required.join(', ')}`);
+      } else {
+        for (const requiredParam of queryParams.required) {
+          if (!parameters.query[requiredParam]) {
+            errors.push(`Missing required query parameter: ${requiredParam}`);
+          }
+        }
+      }
+    }
+
+    const bodySchema = this.extractRequestBodySchema(operation);
+    if (bodySchema && !parameters.body) {
+      errors.push('Missing required request body');
+    }
+
+    const requiredHeaders = this.extractRequiredHeaders(operation);
+    for (const requiredHeader of requiredHeaders) {
+      if (!headers[requiredHeader] && !headers[requiredHeader.toLowerCase()]) {
+        errors.push(`Missing required header: ${requiredHeader}`);
+      }
+    }
+
+    if (operation.parameters) {
+      operation.parameters.forEach(param => {
+        if ('$ref' in param) return;
+
+        const parameter = param as OpenAPIV3.ParameterObject;
+        let value: any;
+
+        if (parameter.in === 'path' && parameters.path) {
+          value = parameters.path[parameter.name];
+        } else if (parameter.in === 'query' && parameters.query) {
+          value = parameters.query[parameter.name];
+        } else if (parameter.in === 'header') {
+          value = headers[parameter.name] || headers[parameter.name.toLowerCase()];
+        }
+
+        if (value !== undefined && parameter.schema) {
+          const validationError = this.validateParameterValue(parameter.name, value, parameter.schema, parameter.in);
+          if (validationError) {
+            errors.push(validationError);
+          }
+        }
+      });
+    }
+
+    return errors;
+  }
+
+  private validateParameterValue(
+    paramName: string,
+    value: any,
+    schema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject,
+    paramIn: string
+  ): string | null {
+    if ('$ref' in schema) {
+      const resolved = this.resolveReference(schema.$ref);
+      return this.validateParameterValue(paramName, value, resolved, paramIn);
+    }
+
+    const schemaObj = schema as OpenAPIV3.SchemaObject;
+
+    if (schemaObj.enum && !schemaObj.enum.includes(value)) {
+      return `Invalid value for ${paramIn} parameter '${paramName}': '${value}'. Must be one of: ${schemaObj.enum.join(', ')}`;
+    }
+
+    if (schemaObj.type) {
+      const expectedType = schemaObj.type;
+      const actualType = typeof value;
+
+      if (expectedType === 'number' && actualType !== 'number') {
+        if (isNaN(Number(value))) {
+          return `Invalid type for ${paramIn} parameter '${paramName}': expected number, got ${actualType}`;
+        }
+      } else if (expectedType === 'boolean' && actualType !== 'boolean') {
+        if (value !== 'true' && value !== 'false') {
+          return `Invalid type for ${paramIn} parameter '${paramName}': expected boolean, got ${actualType}`;
+        }
+      } else if (expectedType === 'string' && actualType !== 'string') {
+        return `Invalid type for ${paramIn} parameter '${paramName}': expected string, got ${actualType}`;
+      }
+    }
+
+    return null;
+  }
+
+  private async handleBatchOperations(args: any): Promise<CallToolResult> {
+    const { operation, count, template, profileIds, namePrefix } = args;
+
+    const operationId = `${operation}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const startTime = new Date().toISOString();
+
+    const results: any[] = [];
+    const errors: string[] = [];
+
+    try {
+      switch (operation) {
+        case 'create_profiles':
+          if (!count || count < 1) {
+            throw new Error('Count must be provided and greater than 0 for create_profiles operation');
+          }
+
+          for (let i = 0; i < count; i++) {
+            try {
+              const profileName = `${namePrefix || 'Profile'} ${i + 1}`;
+              const profileData = {
+                ...template,
+                name: profileName,
+              };
+
+              const result = await this.callDynamicTool('create_profile_with_templates', {
+                body: profileData
+              });
+
+              const profileResult = JSON.parse(result.content[0].text as string);
+              results.push({
+                index: i + 1,
+                name: profileName,
+                status: 'created',
+                profileId: profileResult.body?.id || 'unknown',
+                result: profileResult
+              });
+            } catch (error) {
+              errors.push(`Profile ${i + 1}: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          }
+          break;
+        default:
+          throw new Error(`Unsupported batch operation: ${operation}`);
+      }
+
+      const isSuccess = results.length > 0 && errors.length === 0;
+      const isPartialSuccess = results.length > 0 && errors.length > 0;
+
+      let status = 'SUCCESS';
+      let message = '';
+
+      if (isSuccess) {
+        status = 'SUCCESS';
+        message = `✅ Successfully completed ${operation}: ${results.length}/${operation === 'create_profiles' ? count : profileIds?.length || 0} operations succeeded`;
+      } else if (isPartialSuccess) {
+        status = 'PARTIAL_SUCCESS';
+        message = `⚠️ Partially completed ${operation}: ${results.length}/${operation === 'create_profiles' ? count : profileIds?.length || 0} operations succeeded, ${errors.length} failed`;
+      } else {
+        status = 'FAILED';
+        message = `❌ Failed ${operation}: All operations failed`;
+      }
+
+      const summary = {
+        status,
+        message,
+        operationId,
+        operation,
+        startTime,
+        endTime: new Date().toISOString(),
+        totalOperations: operation === 'create_profiles' ? count : profileIds?.length || 0,
+        successful: results.length,
+        failed: errors.length,
+        completed: true,
+        results,
+        errors: errors.length > 0 ? errors : undefined
+      };
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(summary, null, 2),
+          },
+        ],
+      };
+
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              status: 'FAILED',
+              message: `❌ Batch operation failed: ${error instanceof Error ? error.message : String(error)}`,
+              operationId,
+              operation,
+              startTime,
+              endTime: new Date().toISOString(),
+              completed: false,
+              error: 'Batch operation failed',
+              errorDetails: error instanceof Error ? error.message : String(error),
+              results,
+              errors
+            }, null, 2),
+          },
+        ],
+      };
+    }
+  }
+
   private async callDynamicTool(
     toolName: string,
     parameters: CallParameters = {},
@@ -388,7 +670,12 @@ class GologinMcpServer {
       for (const [method, op] of Object.entries(pathItem)) {
         if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(method) && op) {
           const opObj = op as OpenAPIV3.OperationObject;
-          const generatedToolName = opObj.operationId || `${method}_${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+          // Use the same tool name generation logic as in setupHandlers
+          let generatedToolName = opObj.operationId || `${method}_${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
+          if (opObj.summary) {
+            generatedToolName = opObj.summary.replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_').toLowerCase();
+          }
 
           if (generatedToolName === toolName) {
             targetPath = path;
@@ -403,6 +690,22 @@ class GologinMcpServer {
 
     if (!operation) {
       throw new Error(`Tool "${toolName}" not found`);
+    }
+
+    // Validate parameters against OpenAPI spec
+    const validationErrors = this.validateParameters(operation, targetPath, parameters, headers);
+    if (validationErrors.length > 0) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              error: 'Parameter validation failed',
+              details: validationErrors
+            }, null, 2),
+          },
+        ],
+      };
     }
 
     let url = `${this.baseUrl}${targetPath}`;
@@ -467,16 +770,20 @@ class GologinMcpServer {
         responseBody = await response.text();
       }
 
+      const result = {
+        url: url,
+        method: targetMethod,
+        status: response.status,
+        statusText: response.statusText,
+        headers: responseHeaders,
+        body: responseBody
+      };
+
       return {
         content: [
           {
             type: 'text',
-            text: `API Call Result:\n` +
-              `URL: ${url}\n` +
-              `Method: ${targetMethod}\n` +
-              `Status: ${response.status} ${response.statusText}\n\n` +
-              `Response Headers:\n${JSON.stringify(responseHeaders, null, 2)}\n\n` +
-              `Response Body:\n${typeof responseBody === 'object' ? JSON.stringify(responseBody, null, 2) : responseBody}`,
+            text: JSON.stringify(result, null, 2),
           },
         ],
       };
