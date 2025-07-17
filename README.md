@@ -31,24 +31,48 @@ With GoLogin MCP Server, you can:
 
 1. **Add to Claude Desktop configuration:**
    
-   Open your Claude Desktop config file:
-   - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-   - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+   How to connect Gologin MCP with Claude Desktop
 
-   Add the server configuration:
-   ```json
-   {
-     "mcpServers": {
-       "gologin-mcp": {
-         "command": "npx",
-         "args": ["gologin-mcp"],
-         "env": {
-           "API_TOKEN": "your-gologin-api-token-here"
-         }
-       }
-     }
-   }
-   ```
+Step 1: Access Claude Desktop settings
+Open your Claude Desktop application. In the top menu bar, click on 'Claude' and then select 'Settings...'.
+<img width="380" height="200" src='https://images.gologin.com/claude-1.png' />
+
+Step 2: Navigate to developer settings
+In the Settings window, on the left sidebar, click on 'Developer'. This section manages connections via the Model Context Protocol. Click the 'Edit Config' button to open the configuration file.
+<img width="380" height="200" src='https://images.gologin.com/claude-2.png' />
+
+Step 3: Locate claude_desktop_config.json
+This action will open the claude_desktop_config.json file in your default text editor. This file is where you configure your MCP servers.
+<img width="380" height="200" src='https://images.gologin.com/claude-3.png' />
+
+Step 4: Add Gologin MCP configuration
+You need to add the GoLogin MCP server configuration details within the mcpservers object. Carefully paste the following JSON snippet into your claude_desktop_config.json file.
+Important: Replace 'your-gologin-api-token-here' with your actual GoLogin API token. Ensure the JSON structure remains correct after pasting.
+<img width="380" height="200" src='https://images.gologin.com/claude-4.png' />
+ ```json
+  {
+    "mcpServers": {
+      "gologin-mcp": {
+        "command": "npx",
+        "args": ["gologin-mcp"],
+        "env": {
+          "API_TOKEN": "your-gologin-api-token-here"
+        }
+      }
+    }
+  }
+  ```
+
+
+
+
+Step 5: Verify connection in connectors
+After saving the claude_desktop_config.json file, it is recommended to restart Claude Desktop to ensure the new configuration is loaded.
+Once Claude restarts, navigate back to its 'Settings'. Under the 'Connectors' section (which might be under 'General' or 'Extensions' depending on your Claude version), you should now see 'gologin-mcp LOCAL' listed as a connected service. This indicates a successful integration.
+<img width="380" height="200" src='https://images.gologin.com/claude-5.png' />
+
+Congratulations! You have successfully connected GoLogin MCP with Claude Desktop. Your AI assistant can now leverage Gologin profiles for various tasks.
+
 
 2. **Restart Claude Desktop** and the server will be available.
 
