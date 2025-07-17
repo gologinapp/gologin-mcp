@@ -53,6 +53,7 @@ You need to add the GoLogin MCP server configuration details within the mcpserve
 Important: Replace 'your-gologin-api-token-here' with your actual GoLogin API token. Ensure the JSON structure remains correct after pasting.
 
 <img width="380" height="200" src='https://images.gologin.com/claude-4.png' />
+
    ```json
    {
      "mcpServers": {
