@@ -33,12 +33,12 @@ With GoLogin MCP Server, you can:
    
    
 
-Step 1: Access Claude Desktop settings
+## Step 1: Access Claude Desktop settings 
 Open your Claude Desktop application. In the top menu bar, click on 'Claude' and then select 'Settings...'.
 
 <img width="380" height="200" src='https://images.gologin.com/claude-1.png' />
 
-Step 2: Navigate to developer settings
+## Step 2: Navigate to developer settings
 In the Settings window, on the left sidebar, click on 'Developer'. This section manages connections via the Model Context Protocol. Click the 'Edit Config' button to open the configuration file.
 
 <img width="380" height="200" src='https://images.gologin.com/claude-2.png' />
