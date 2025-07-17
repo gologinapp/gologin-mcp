@@ -80,8 +80,6 @@ Once Claude restarts, navigate back to its 'Settings'. Under the 'Connectors' se
 Congratulations! You have successfully connected GoLogin MCP with Claude Desktop. Your AI assistant can now leverage Gologin profiles for various tasks.
 
 
-2. **Restart Claude Desktop** and the server will be available.
-
 ### Cursor
 
 1. **Configure in Cursor:**
