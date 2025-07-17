@@ -29,9 +29,9 @@ With GoLogin MCP Server, you can:
 
 ### Claude Desktop
 
-1. **Add to Claude Desktop configuration:**
+**How to connect Gologin MCP with Claude Desktop:**
    
-   How to connect Gologin MCP with Claude Desktop
+   
 
 Step 1: Access Claude Desktop settings
 Open your Claude Desktop application. In the top menu bar, click on 'Claude' and then select 'Settings...'.
@@ -53,19 +53,19 @@ You need to add the GoLogin MCP server configuration details within the mcpserve
 Important: Replace 'your-gologin-api-token-here' with your actual GoLogin API token. Ensure the JSON structure remains correct after pasting.
 
 <img width="380" height="200" src='https://images.gologin.com/claude-4.png' />
- ```json
-  {
-    "mcpServers": {
-      "gologin-mcp": {
-        "command": "npx",
-        "args": ["gologin-mcp"],
-        "env": {
-          "API_TOKEN": "your-gologin-api-token-here"
-        }
-      }
-    }
-  }
-  ```
+   ```json
+   {
+     "mcpServers": {
+       "gologin-mcp": {
+         "command": "npx",
+         "args": ["gologin-mcp"],
+         "env": {
+           "API_TOKEN": "your-gologin-api-token-here"
+         }
+       }
+     }
+   }
+   ```
 
 
 
