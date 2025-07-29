@@ -54,7 +54,7 @@ export class MyMCP extends McpAgent {
       }
     }
     for (const tool of tools) {
-      console.log('tool', tool.name);
+      // console.log('tool', tool.name);
       this.server.registerTool(tool.name, {
         title: tool.name,
         description: tool.description,
@@ -74,7 +74,7 @@ export class MyMCP extends McpAgent {
   }
 
   private async loadApiSpec(): Promise<void> {
-    const url = 'https://docs-download.gologin.com/openapi.json';
+    const url = 'https://docs-download.gologin.com/openapi-test.json';
 
     const response = await fetch(url);
     if (!response.ok) {
@@ -113,17 +113,19 @@ export class MyMCP extends McpAgent {
     if (pathParams.properties && Object.keys(pathParams.properties).length > 0) {
       const pathZodObj: any = {};
       for (const [key, prop] of Object.entries(pathParams.properties)) {
-        pathZodObj[key] = this.convertToZodSchema(prop);
+        const zodSchema = this.convertToZodSchema(prop);
+        pathZodObj[key] = pathParams.required.includes(key) ? zodSchema : zodSchema.optional();
       }
-      schemaObj.path = pathParams.required.length > 0 ? z.object(pathZodObj) : z.object(pathZodObj).optional();
+      schemaObj.path = z.object(pathZodObj);
     }
 
     if (queryParams.properties && Object.keys(queryParams.properties).length > 0) {
       const queryZodObj: any = {};
       for (const [key, prop] of Object.entries(queryParams.properties)) {
-        queryZodObj[key] = this.convertToZodSchema(prop);
+        const zodSchema = this.convertToZodSchema(prop);
+        queryZodObj[key] = queryParams.required.includes(key) ? zodSchema : zodSchema.optional();
       }
-      schemaObj.query = queryParams.required.length > 0 ? z.object(queryZodObj) : z.object(queryZodObj).optional();
+      schemaObj.query = z.object(queryZodObj);
     }
 
     if (bodySchema) {
@@ -133,7 +135,6 @@ export class MyMCP extends McpAgent {
       console.log('operation', operation);
       console.log('pathParams', pathParams, 'queryParams', queryParams, 'bodySchema', bodySchema);
     }
-
     return schemaObj;
   }
 
@@ -283,6 +284,11 @@ export class MyMCP extends McpAgent {
         });
       });
 
+      // Ensure required array is always present for object types
+      if (!mergedSchema.required) {
+        mergedSchema.required = [];
+      }
+
       return mergedSchema;
     }
 
@@ -297,8 +303,13 @@ export class MyMCP extends McpAgent {
       });
     }
 
-    if (schemaObj.required) {
-      jsonSchema.required = schemaObj.required;
+    // Only add required field for object types
+    if (jsonSchema.type === 'object') {
+      if (schemaObj.required) {
+        jsonSchema.required = schemaObj.required;
+      } else {
+        jsonSchema.required = [];
+      }
     }
 
     if (schemaObj.description) {
@@ -377,7 +388,7 @@ export class MyMCP extends McpAgent {
       for (const [method, op] of Object.entries(pathItem)) {
         if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(method) && op) {
           const opObj = op as OpenAPIV3.OperationObject;
-          const generatedToolName = opObj.operationId?.replace('[0]', '') || `${method}_${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
+          const generatedToolName = `${method}${path.replace('browser', 'profile').replace(/[^a-zA-Z0-9]/g, '_')}`;
 
           if (generatedToolName === toolName) {
             targetPath = path;
@@ -389,6 +400,7 @@ export class MyMCP extends McpAgent {
       }
       if (operation) break;
     }
+
 
     if (!operation) {
       throw new Error(`Tool "${toolName}" not found`);
@@ -521,8 +533,14 @@ export class MyMCP extends McpAgent {
         case 'object':
           if (schema.properties) {
             const zodObj: any = {};
+            const requiredFields = schema.required || [];
             for (const [key, prop] of Object.entries(schema.properties)) {
-              zodObj[key] = this.convertJsonSchemaToZod(prop);
+              let propSchema = this.convertJsonSchemaToZod(prop);
+              // If the field is not in the required array, make it optional
+              if (!requiredFields.includes(key)) {
+                propSchema = propSchema.optional();
+              }
+              zodObj[key] = propSchema;
             }
             zodSchema = z.object(zodObj);
           } else {
