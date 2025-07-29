@@ -1,12 +1,6 @@
 #!/usr/bin/env node
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
   CallToolResult,
-  ListToolsResult,
-  Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import yaml from 'js-yaml';
 import { OpenAPIV3 } from 'openapi-types';
@@ -32,28 +26,10 @@ export class MyMCP extends McpAgent {
   // private token?: string | undefined;
 
   async init() {
+    console.log('init');
     await this.loadApiSpec();
     this.setupHandlers();
-
-    // this.token = this.props.bearerToken as string;
   }
-
-  // constructor(token?: string) {
-  //   this.server = new Server(
-  //     {
-  //       name: 'gologin-mcp',
-  //       version: '0.0.1',
-  //     },
-  //     {
-  //       capabilities: {
-  //         tools: {},
-  //       },
-  //     }
-  //   );
-
-  //   this.token = token;
-  //   this.setupHandlers();
-  // }
 
   private setupHandlers(): void {
     const tools: any[] = [];
@@ -64,8 +40,8 @@ export class MyMCP extends McpAgent {
         for (const [method, operation] of Object.entries(pathItem)) {
           if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(method) && operation) {
             const op = operation as OpenAPIV3.OperationObject;
-            const toolName = op.operationId || `${method}_${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
-
+            const toolName = `${method}${path.replace('browser', 'profile').replace(/[^a-zA-Z0-9]/g, '_')}`;
+            console.log('toolName', toolName);
             const inputSchema = this.buildInputSchema(op, path);
 
             tools.push({
@@ -84,8 +60,6 @@ export class MyMCP extends McpAgent {
         description: tool.description,
         inputSchema: tool.inputSchema,
       }, async (args: any) => {
-    // console.log('Tool call args:', args);
-    // console.log('Original request body:', this.props.requestBody);
 
         const parameters: CallParameters = {
           path: args.path as Record<string, string> | undefined,
@@ -96,86 +70,7 @@ export class MyMCP extends McpAgent {
 
         return await this.callDynamicTool(tool.name, parameters, headers);
       });
-      // this.server.tool(tool.name, {
-      //   inputSchema: tool.inputSchema,
-      // }, async (args) => {
-      //   console.log(33333, args);
-      //   const parameters: CallParameters = {
-      //     path: args.path as Record<string, string> | undefined,
-      //     query: args.query as Record<string, string> | undefined,
-      //     body: args.body || (args.parameters ? args.parameters : undefined),
-      //   };
-      //   const headers = args.headers as Record<string, string> | undefined || {};
-
-      //   return await this.callDynamicTool(tool.name, parameters, headers);
-      // });
-      // this.server.tool(tool.name, tool.inputSchema, async (args) => {
-      //   console.log('Tool call args:', args);
-      //   console.log('Original request body:', this.props.requestBody);
-
-      //   const parameters: CallParameters = {
-      //     path: args.path as Record<string, string> | undefined,
-      //     query: args.query as Record<string, string> | undefined,
-      //     body: args.body || (args.parameters ? args.parameters : undefined),
-      //   };
-      //   const headers = args.headers as Record<string, string> | undefined || {};
-
-      //   return await this.callDynamicTool(tool.name, parameters, headers);
-      // });
     }
-
-    // this.server.setRequestHandler(ListToolsRequestSchema, async (): Promise<ListToolsResult> => {
-    //   const tools: Tool[] = [];
-    //   if (this.apiSpec && this.apiSpec.paths) {
-    //     for (const [path, pathItem] of Object.entries(this.apiSpec.paths)) {
-    //       if (!pathItem) continue;
-
-    //       for (const [method, operation] of Object.entries(pathItem)) {
-    //         if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(method) && operation) {
-    //           const op = operation as OpenAPIV3.OperationObject;
-    //           const toolName = op.operationId || `${method}_${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
-
-    //           const inputSchema = this.buildInputSchema(op, path);
-
-    //           tools.push({
-    //             name: toolName,
-    //             description: op.summary || op.description || `${method.toUpperCase()} ${path}`,
-    //             inputSchema,
-    //           });
-    //         }
-    //       }
-    //     }
-    //   }
-
-    //   return { tools };
-    // });
-
-    // this.server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToolResult> => {
-    //   const { name, arguments: args } = request.params;
-
-    //   if (!args) {
-    //     throw new Error('No arguments provided');
-    //   }
-
-    //   try {
-    //     const parameters: CallParameters = {
-    //       path: args.path as Record<string, string> | undefined,
-    //       query: args.query as Record<string, string> | undefined,
-    //       body: args.body || (args.parameters ? args.parameters : undefined),
-    //     };
-
-    //     return await this.callDynamicTool(name, parameters, args.headers as Record<string, string> | undefined);
-    //   } catch (error) {
-    //     return {
-    //       content: [
-    //         {
-    //           type: 'text',
-    //           text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-    //         },
-    //       ],
-    //     };
-    //   }
-    // });
   }
 
   private async loadApiSpec(): Promise<void> {
@@ -209,9 +104,6 @@ export class MyMCP extends McpAgent {
       // @ts-ignore
       console.log('operation', operation.requestBody?.content['application/json']?.schema?.properties);
     }
-    if (operation.operationId?.includes('quick')) {
-      console.log('operation', operation);
-    }
     const schemaObj: any = {};
 
     const pathParams = this.extractPathParameters(operation, path);
@@ -233,15 +125,15 @@ export class MyMCP extends McpAgent {
       }
       schemaObj.query = queryParams.required.length > 0 ? z.object(queryZodObj) : z.object(queryZodObj).optional();
     }
-    // console.log('bodySchema', bodySchema);
+
     if (bodySchema) {
       schemaObj.body = this.convertJsonSchemaToZod(bodySchema);
     }
-    // console.log('schemaObj', schemaObj);
-    if (operation.operationId?.includes('updateProfileProxyMany')) {
-      console.log('pathParams', pathParams, 'queryParams', queryParams, 'bodySchema', bodySchema?.properties.proxies.items.properties);
+    if (operation.operationId?.includes('updateCustomBrowser')) {
+      console.log('operation', operation);
+      console.log('pathParams', pathParams, 'queryParams', queryParams, 'bodySchema', bodySchema);
     }
-    // schemaObj.headers = z.object({}).optional();
+
     return schemaObj;
   }
 
@@ -289,9 +181,6 @@ export class MyMCP extends McpAgent {
 
         const parameter = param as OpenAPIV3.ParameterObject;
         if (parameter.in === 'query') {
-          // console.log('parameter', parameter);
-          // console.log('parameter.schema', parameter.schema);
-          // Use full schema instead of just type to preserve enum
           properties[parameter.name] = parameter.schema || { type: 'string' };
           if (parameter.required) {
             required.push(parameter.name);
@@ -355,33 +244,27 @@ export class MyMCP extends McpAgent {
 
     const schemaObj = schema as OpenAPIV3.SchemaObject;
 
-    // Handle allOf - merge all schemas
     if (schemaObj.allOf) {
       const mergedSchema: any = {
         type: schemaObj.type || 'object',
       };
 
-      // Keep the description from the parent schema if it exists
       if (schemaObj.description) {
         mergedSchema.description = schemaObj.description;
       }
 
-      // Merge all schemas in allOf
       schemaObj.allOf.forEach(subSchema => {
         const resolvedSubSchema = this.convertOpenAPISchemaToJsonSchema(subSchema);
 
-        // Merge properties
         if (resolvedSubSchema.properties) {
           if (!mergedSchema.properties) {
             mergedSchema.properties = {};
           }
-          // Recursively convert each property to ensure proper typing
           Object.entries(resolvedSubSchema.properties).forEach(([key, prop]) => {
             mergedSchema.properties[key] = this.convertOpenAPISchemaToJsonSchema(prop as OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject);
           });
         }
 
-        // Merge required arrays
         if (resolvedSubSchema.required) {
           if (!mergedSchema.required) {
             mergedSchema.required = [];
@@ -389,12 +272,10 @@ export class MyMCP extends McpAgent {
           mergedSchema.required.push(...resolvedSubSchema.required.filter((req: string) => !mergedSchema.required.includes(req)));
         }
 
-        // Inherit type if not set
         if (!mergedSchema.type && resolvedSubSchema.type) {
           mergedSchema.type = resolvedSubSchema.type;
         }
 
-        // Merge other properties
         ['enum', 'format', 'minimum', 'maximum', 'pattern', 'items'].forEach(prop => {
           if (resolvedSubSchema[prop] && !mergedSchema[prop]) {
             mergedSchema[prop] = resolvedSubSchema[prop];
@@ -482,7 +363,6 @@ export class MyMCP extends McpAgent {
     headers: Record<string, string> = {}
   ): Promise<CallToolResult> {
     console.log('parameters', parameters.body);
-    // console.log(11111, toolName, parameters, headers);
     if (!this.apiSpec || !this.apiSpec.paths) {
       throw new Error('API specification not loaded');
     }
@@ -531,7 +411,6 @@ export class MyMCP extends McpAgent {
     }
 
     const queryParams = new URLSearchParams();
-    // console.log('parameters.query', parameters.query);
     if (parameters.query) {
       for (const [key, value] of Object.entries(parameters.query)) {
         if (value) {
@@ -543,8 +422,7 @@ export class MyMCP extends McpAgent {
     if (queryParams.toString()) {
       url += `?${queryParams.toString()}`;
     }
-    // console.log('url', url);
-    if (parameters.body && ['POST', 'PUT', 'PATCH'].includes(targetMethod)) {
+    if (parameters.body && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(targetMethod)) {
       requestHeaders['Content-Type'] = 'application/json';
       requestBody = JSON.stringify(parameters.body);
     }
@@ -558,7 +436,6 @@ export class MyMCP extends McpAgent {
       if (requestBody) {
         fetchOptions.body = requestBody;
       }
-      // console.log(fetchOptions);
       const response = await fetch(url, fetchOptions);
 
       const responseHeaders: Record<string, string> = {};
@@ -579,7 +456,6 @@ export class MyMCP extends McpAgent {
       } else {
         responseBody = await response.text();
       }
-      // console.log('responseBody', responseBody);
       return {
         content: [
           {
@@ -600,8 +476,6 @@ export class MyMCP extends McpAgent {
 
   private convertToZodSchema(prop: any): any {
     let zodSchema: any;
-    // console.log('prop', prop);
-    // Handle enum first, regardless of type
     if (prop.enum && Array.isArray(prop.enum)) {
       zodSchema = z.enum(prop.enum as [string, ...string[]]);
     } else {
@@ -626,7 +500,6 @@ export class MyMCP extends McpAgent {
       }
     }
 
-    // Add description if it exists
     if (prop.description) {
       zodSchema = zodSchema.describe(prop.description);
     }
@@ -641,7 +514,6 @@ export class MyMCP extends McpAgent {
 
     let zodSchema: any;
 
-    // Handle enum first, regardless of type
     if (schema.enum && Array.isArray(schema.enum)) {
       zodSchema = z.enum(schema.enum as [string, ...string[]]);
     } else {
@@ -677,7 +549,6 @@ export class MyMCP extends McpAgent {
       }
     }
 
-    // Add description if it exists
     if (schema.description) {
       zodSchema = zodSchema.describe(schema.description);
     }
@@ -692,22 +563,13 @@ export class MyMCP extends McpAgent {
 
     throw new Error('No servers found in API spec');
   }
-
-  //   public async run(): Promise<void> {
-  //     await this.loadApiSpec();
-  //     const transport = new StdioServerTransport();
-  //     await this.server.connect(transport);
-  //     console.error('GoLogin MCP server running on stdio');
-  //   }
 }
 
 export default {
   // @ts-ignore
   fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
-    // console.log(request.headers);
     const authHeader = request.headers.get("authorization");
-    // console.log(authHeader);
     if (!authHeader) {
       return new Response("Unauthorized", { status: 401 });
     }
@@ -716,14 +578,9 @@ export default {
 
     ctx.props = {
       bearerToken: authHeader,
-      // could also add arbitrary headers/parameters here to pass into the MCP client
     };
 
     if (url.pathname === "/sse" || url.pathname === "/sse/message") {
-      console.log(22222);
-      // console.log(request);
-      // console.log(env);
-      // console.log(ctx);
       return MyMCP.serveSSE("/sse").fetch(request, env, ctx);
     }
 
@@ -733,8 +590,4 @@ export default {
 
     return new Response("Not found", { status: 404 });
   },
-};
-
-// const token = process.env.API_TOKEN || '';
-// const server = new GologinMcpServer(token);
-// server.run().catch(console.error); 
+}
