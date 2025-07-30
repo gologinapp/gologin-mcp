@@ -19,11 +19,12 @@
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.17.0",
+    "@modelcontextprotocol/sdk": "1.13.1",
     "js-yaml": "^4.1.0",
     "openapi-types": "^12.1.3",
     "swagger-parser": "^10.0.3",
-    "zod": "^4.0.14"
+    "agents": "^0.0.109",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.0",

@@ -1,13 +1,14 @@
 #!/usr/bin/env node
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolResult,
-  // Tool,
+  ListToolsRequestSchema,
+  CallToolRequestSchema,
+  Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import yaml from 'js-yaml';
 import { OpenAPIV3 } from 'openapi-types';
-import { z } from 'zod';
 
 type OpenAPISpec = OpenAPIV3.Document;
 
@@ -18,13 +19,13 @@ type CallParameters = {
 }
 
 class GologinMcpServer {
-  private server: McpServer;
+  private server: Server;
   private apiSpec: OpenAPISpec | null = null;
   private baseUrl: string = '';
   private token?: string | undefined;
 
   constructor(token?: string) {
-    this.server = new McpServer(
+    this.server = new Server(
       {
         name: 'gologin-mcp',
         version: '0.0.1',
@@ -42,84 +43,135 @@ class GologinMcpServer {
 
   private async setupHandlers(): Promise<void> {
     await this.loadApiSpec();
-    // const tools: Tool[] = [];
-    console.log('this.apiSpec', this.apiSpec);
-    if (this.apiSpec && this.apiSpec.paths) {
-      for (const [path, pathItem] of Object.entries(this.apiSpec.paths)) {
-        if (!pathItem) continue;
 
-        for (const [method, operation] of Object.entries(pathItem)) {
-          if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(method) && operation) {
-            const op = operation as OpenAPIV3.OperationObject;
-            const toolName = op.operationId || `${method}_${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+      const tools: Tool[] = [];
+      if (this.apiSpec && this.apiSpec.paths) {
+        for (const [path, pathItem] of Object.entries(this.apiSpec.paths)) {
+          if (!pathItem) continue;
 
-            const inputSchema = this.buildInputSchema(op, path);
-            this.server.registerTool(toolName, { title: toolName, description: op.summary || op.description || `${method.toUpperCase()} ${path}`, inputSchema }, (params: any) => {
-              return this.callDynamicTool(toolName, params);
-            });
-            // tools.push({
-            //   name: toolName,
-            //   description: op.summary || op.description || `${method.toUpperCase()} ${path}`,
-            //   inputSchema,
-            // });
+          for (const [method, operation] of Object.entries(pathItem)) {
+            if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(method) && operation) {
+              const op = operation as OpenAPIV3.OperationObject;
+              const toolName = `${method}${path.replace('browser', 'profile').replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+              const inputSchema = this.buildInputSchema(op, path);
+
+              tools.push({
+                name: toolName,
+                description: op.summary || op.description || `${method.toUpperCase()} ${path}`,
+                inputSchema,
+              });
+            }
           }
         }
       }
+
+      return { tools };
+    });
+
+    this.server.setRequestHandler(CallToolRequestSchema, async (request: any): Promise<CallToolResult> => {
+      const { name, arguments: args } = request.params;
+
+      if (!args) {
+        throw new Error('No arguments provided');
+      }
+      console.log('args', args);
+      try {
+        const parameters: CallParameters = this.extractParametersFromArgs(name, args);
+        return await this.callDynamicTool(name, parameters, args.headers as Record<string, string> | undefined);
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+        };
+      }
+    });
+  }
+
+  private extractParametersFromArgs(toolName: string, args: Record<string, any>): CallParameters {
+    if (!this.apiSpec || !this.apiSpec.paths) {
+      return { body: args };
     }
 
-    // this.server.registerTool(tools);
-    // this.server.setRequestHandler(ListToolsRequestSchema, async (): Promise<ListToolsResult> => {
-    //   const tools: Tool[] = [];
-    //   if (this.apiSpec && this.apiSpec.paths) {
-    //     for (const [path, pathItem] of Object.entries(this.apiSpec.paths)) {
-    //       if (!pathItem) continue;
+    let operation: OpenAPIV3.OperationObject | undefined;
+    let path = '';
 
-    //       for (const [method, operation] of Object.entries(pathItem)) {
-    //         if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(method) && operation) {
-    //           const op = operation as OpenAPIV3.OperationObject;
-    //           const toolName = op.operationId || `${method}_${path.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    for (const [apiPath, pathItem] of Object.entries(this.apiSpec.paths)) {
+      if (!pathItem) continue;
 
-    //           const inputSchema = this.buildInputSchema(op, path);
+      for (const [method, op] of Object.entries(pathItem)) {
+        if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(method) && op) {
+          const opObj = op as OpenAPIV3.OperationObject;
+          const generatedToolName = opObj.operationId || `${method}_${apiPath.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
-    //           tools.push({
-    //             name: toolName,
-    //             description: op.summary || op.description || `${method.toUpperCase()} ${path}`,
-    //             inputSchema,
-    //           });
-    //         }
-    //       }
-    //     }
-    //   }
+          if (generatedToolName === toolName) {
+            operation = opObj;
+            path = apiPath;
+            break;
+          }
+        }
+      }
+      if (operation) break;
+    }
 
-    //   return { tools };
-    // });
+    if (!operation) {
+      return { body: args };
+    }
 
-    // this.server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToolResult> => {
-    //   const { name, arguments: args } = request.params;
+    const pathParams: Record<string, string> = {};
+    const queryParams: Record<string, string> = {};
+    const bodyParams: any = {};
 
-    //   if (!args) {
-    //     throw new Error('No arguments provided');
-    //   }
+    const pathParamNames = path.match(/\{([^}]+)\}/g)?.map(p => p.slice(1, -1)) || [];
 
-    //   try {
-    //     const parameters: CallParameters = {
-    //       path: args.path as Record<string, string> | undefined,
-    //       query: args.query as Record<string, string> | undefined,
-    //       body: args.body || (args.parameters ? args.parameters : undefined),
-    //     };
+    if (operation.parameters) {
+      operation.parameters.forEach(param => {
+        if ('$ref' in param) return;
 
-    //     return await this.callDynamicTool(name, parameters, args.headers as Record<string, string> | undefined);
-    //   } catch (error) {
-    //     return {
-    //       content: [
-    //         {
-    //           type: 'text',
-    //           text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-    //         },
-    //       ],
-    //     };
-    //   }
-    // });
+        const parameter = param as OpenAPIV3.ParameterObject;
+        const paramName = parameter.name;
+
+        if (parameter.in === 'path' && args[paramName] !== undefined) {
+          pathParams[paramName] = String(args[paramName]);
+        } else if (parameter.in === 'query' && args[paramName] !== undefined) {
+          queryParams[paramName] = String(args[paramName]);
+        }
+      });
+    }
+
+    pathParamNames.forEach(paramName => {
+      if (args[paramName] !== undefined && !pathParams[paramName]) {
+        pathParams[paramName] = String(args[paramName]);
+      }
+    });
+
+    const usedParams = new Set([...Object.keys(pathParams), ...Object.keys(queryParams)]);
+    for (const [key, value] of Object.entries(args)) {
+      if (!usedParams.has(key)) {
+        bodyParams[key] = value;
+      }
+    }
+
+    const parameters: CallParameters = {};
+
+    if (Object.keys(pathParams).length > 0) {
+      parameters.path = pathParams;
+    }
+
+    if (Object.keys(queryParams).length > 0) {
+      parameters.query = queryParams;
+    }
+
+    if (Object.keys(bodyParams).length > 0) {
+      parameters.body = bodyParams;
+    }
+
+    return parameters;
   }
 
   private async loadApiSpec(): Promise<void> {
@@ -150,35 +202,50 @@ class GologinMcpServer {
   }
 
   private buildInputSchema(operation: OpenAPIV3.OperationObject, path: string): any {
-    const schemaObj: any = {};
+    const properties: any = {};
+    const required: string[] = [];
 
     const pathParams = this.extractPathParameters(operation, path);
     const queryParams = this.extractQueryParameters(operation);
     const bodySchema = this.extractRequestBodySchema(operation);
 
     if (pathParams.properties && Object.keys(pathParams.properties).length > 0) {
-      const pathZodObj: any = {};
       for (const [key, prop] of Object.entries(pathParams.properties)) {
-        const zodSchema = this.convertToZodSchema(prop);
-        pathZodObj[key] = pathParams.required.includes(key) ? zodSchema : zodSchema.optional();
+        properties[key] = this.convertOpenAPISchemaToJsonSchema(prop as OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject);
+        if (pathParams.required.includes(key)) {
+          required.push(key);
+        }
       }
-      schemaObj.path = z.object(pathZodObj);
     }
 
     if (queryParams.properties && Object.keys(queryParams.properties).length > 0) {
-      const queryZodObj: any = {};
       for (const [key, prop] of Object.entries(queryParams.properties)) {
-        const zodSchema = this.convertToZodSchema(prop);
-        queryZodObj[key] = queryParams.required.includes(key) ? zodSchema : zodSchema.optional();
+        properties[key] = this.convertOpenAPISchemaToJsonSchema(prop as OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject);
+        if (queryParams.required.includes(key)) {
+          required.push(key);
+        }
       }
-      schemaObj.query = z.object(queryZodObj);
     }
 
-    if (bodySchema) {
-      schemaObj.body = this.convertJsonSchemaToZod(bodySchema);
+    if (bodySchema && bodySchema.properties) {
+      for (const [key, prop] of Object.entries(bodySchema.properties)) {
+        properties[key] = this.convertOpenAPISchemaToJsonSchema(prop as OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject);
+        if (bodySchema.required && bodySchema.required.includes(key)) {
+          required.push(key);
+        }
+      }
     }
 
-    return schemaObj;
+    const schema: any = {
+      type: 'object',
+      properties,
+    };
+
+    if (required.length > 0) {
+      schema.required = required;
+    }
+
+    return schema;
   }
 
   private extractPathParameters(operation: OpenAPIV3.OperationObject, path: string): { properties: any; required: string[] } {
@@ -427,9 +494,9 @@ class GologinMcpServer {
     let requestBody: string | undefined;
 
     requestHeaders['User-Agent'] = 'gologin-mcp';
-
+    console.error('this.token', this.token);
     if (this.token) {
-      requestHeaders['Authorization'] = `${this.token}`;
+      requestHeaders['Authorization'] = `Bearer ${this.token}`;
     }
 
     if (parameters.path) {
@@ -460,7 +527,7 @@ class GologinMcpServer {
         method: targetMethod,
         headers: requestHeaders,
       };
-
+      console.error('fetchOptions', fetchOptions);
       if (requestBody) {
         fetchOptions.body = requestBody;
       }
@@ -502,93 +569,7 @@ class GologinMcpServer {
     }
   }
 
-  private convertToZodSchema(prop: any): any {
-    let zodSchema: any;
-    if (prop.enum && Array.isArray(prop.enum)) {
-      zodSchema = z.enum(prop.enum as [string, ...string[]]);
-    } else {
-      switch (prop.type) {
-        case 'string':
-          zodSchema = z.string();
-          break;
-        case 'number':
-          zodSchema = z.number();
-          break;
-        case 'integer':
-          zodSchema = z.number().int();
-          break;
-        case 'boolean':
-          zodSchema = z.boolean();
-          break;
-        case 'array':
-          zodSchema = z.array(z.any());
-          break;
-        default:
-          zodSchema = z.string();
-      }
-    }
 
-    if (prop.description) {
-      zodSchema = zodSchema.describe(prop.description);
-    }
-
-    return zodSchema;
-  }
-
-  private convertJsonSchemaToZod(schema: any): any {
-    if (!schema || typeof schema !== 'object') {
-      return z.any();
-    }
-
-    let zodSchema: any;
-
-    if (schema.enum && Array.isArray(schema.enum)) {
-      zodSchema = z.enum(schema.enum as [string, ...string[]]);
-    } else {
-      switch (schema.type) {
-        case 'object':
-          if (schema.properties) {
-            const zodObj: any = {};
-            const requiredFields = schema.required || [];
-            for (const [key, prop] of Object.entries(schema.properties)) {
-              let propSchema = this.convertJsonSchemaToZod(prop);
-              // If the field is not in the required array, make it optional
-              if (!requiredFields.includes(key)) {
-                propSchema = propSchema.optional();
-              }
-              zodObj[key] = propSchema;
-            }
-            zodSchema = z.object(zodObj);
-          } else {
-            zodSchema = z.object({});
-          }
-          break;
-        case 'array':
-          zodSchema = z.array(schema.items ? this.convertJsonSchemaToZod(schema.items) : z.any());
-          break;
-        case 'string':
-          zodSchema = z.string();
-          break;
-        case 'number':
-          zodSchema = z.number();
-          break;
-        case 'integer':
-          zodSchema = z.number().int();
-          break;
-        case 'boolean':
-          zodSchema = z.boolean();
-          break;
-        default:
-          zodSchema = z.any();
-      }
-    }
-
-    if (schema.description) {
-      zodSchema = zodSchema.describe(schema.description);
-    }
-
-    return zodSchema;
-  }
 
   private getBaseUrl(spec: OpenAPISpec): string {
     if (spec.servers && spec.servers.length > 0) {
@@ -602,10 +583,11 @@ class GologinMcpServer {
     await this.setupHandlers();
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('GoLogin MCP server running on stdio');
+    console.error('GoLogin MCP server running on stdio111');
   }
 }
 
 const token = process.env.API_TOKEN || '';
+console.log('token', token);
 const server = new GologinMcpServer(token);
 server.run().catch(console.error); 
