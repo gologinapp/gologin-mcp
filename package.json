@@ -14,21 +14,23 @@
     "build": "tsc && chmod +x dist/index.js",
     "start": "npm run build && node dist/index.js",
     "dev": "tsc --watch & node --watch dist/index.js",
-    "test": "npm run build && node test-server.js",
+    "test": "npm run build && node test-client.js",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^0.5.0",
+    "@modelcontextprotocol/sdk": "1.13.1",
     "js-yaml": "^4.1.0",
+    "openapi-types": "^12.1.3",
     "swagger-parser": "^10.0.3",
-    "openapi-types": "^12.1.3"
+    "agents": "^0.0.109",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.0",
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0",
-    "esbuild": "^0.19.0"
+    "esbuild": "^0.19.0",
+    "typescript": "^5.0.0"
   },
   "keywords": [
     "anti-detect browser",
