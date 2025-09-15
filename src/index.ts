@@ -416,6 +416,10 @@ export class MyMCP extends McpAgent {
       requestHeaders['Authorization'] = `${this.props.bearerToken}`;
     }
 
+    if (this.props.twoFactorToken) {
+      requestHeaders['X-Two-Factor-Token'] = this.props.twoFactorToken as string;
+    }
+
     if (parameters.path) {
       for (const [key, value] of Object.entries(parameters.path)) {
         url = url.replace(`{${key}}`, encodeURIComponent(value));
@@ -588,14 +592,15 @@ export default {
   fetch(request: Request, env: Env, ctx: ExecutionContext) {
     const url = new URL(request.url);
     const authHeader = request.headers.get("authorization");
+    const twoFactorToken = request.headers.get("x-two-factor-token");
+
     if (!authHeader) {
       return new Response("Unauthorized", { status: 401 });
     }
 
-
-
     ctx.props = {
       bearerToken: authHeader,
+      twoFactorToken: twoFactorToken,
     };
 
     if (url.pathname === "/sse" || url.pathname === "/sse/message") {
