@@ -53,8 +53,7 @@ class GologinMcpServer {
           for (const [method, operation] of Object.entries(pathItem)) {
             if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(method) && operation) {
               const op = operation as OpenAPIV3.OperationObject;
-              const toolName = `${method}${path.replace('browser', 'profile').replace(/[^a-zA-Z0-9]/g, '_')}`;
-
+              const toolName = `${method}${path.replace('browser', 'profile').replace(/[^a-zA-Z0-9]+/g, '_')}`;
               const inputSchema = this.buildInputSchema(op, path);
 
               tools.push({
@@ -76,7 +75,7 @@ class GologinMcpServer {
       if (!args) {
         throw new Error('No arguments provided');
       }
-      console.log('args', args);
+
       try {
         const parameters: CallParameters = this.extractParametersFromArgs(name, args);
         return await this.callDynamicTool(name, parameters, args.headers as Record<string, string> | undefined);
@@ -108,7 +107,6 @@ class GologinMcpServer {
         if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(method) && op) {
           const opObj = op as OpenAPIV3.OperationObject;
           const generatedToolName = opObj.operationId || `${method}_${apiPath.replace(/[^a-zA-Z0-9]/g, '_')}`;
-
           if (generatedToolName === toolName) {
             operation = opObj;
             path = apiPath;
@@ -176,7 +174,6 @@ class GologinMcpServer {
 
   private async loadApiSpec(): Promise<void> {
     const url = 'https://docs-download.gologin.com/openapi-test.json';
-    console.log('url', url);
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -195,7 +192,7 @@ class GologinMcpServer {
         spec = yaml.load(text);
       }
     }
-    // console.log('spec', spec);
+
     this.apiSpec = spec;
 
     this.baseUrl = this.getBaseUrl(spec);
@@ -456,7 +453,7 @@ class GologinMcpServer {
     parameters: CallParameters = {},
     headers: Record<string, string> = {}
   ): Promise<CallToolResult> {
-    console.log('parameters', parameters.body);
+
     if (!this.apiSpec || !this.apiSpec.paths) {
       throw new Error('API specification not loaded');
     }
@@ -494,7 +491,6 @@ class GologinMcpServer {
     let requestBody: string | undefined;
 
     requestHeaders['User-Agent'] = 'gologin-mcp';
-    console.error('this.token', this.token);
     if (this.token) {
       requestHeaders['Authorization'] = `Bearer ${this.token}`;
     }
@@ -521,13 +517,12 @@ class GologinMcpServer {
       requestHeaders['Content-Type'] = 'application/json';
       requestBody = JSON.stringify(parameters.body);
     }
-    console.log('requestBody', requestBody);
+
     try {
       const fetchOptions: RequestInit = {
         method: targetMethod,
         headers: requestHeaders,
       };
-      console.error('fetchOptions', fetchOptions);
       if (requestBody) {
         fetchOptions.body = requestBody;
       }
@@ -583,11 +578,10 @@ class GologinMcpServer {
     await this.setupHandlers();
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('GoLogin MCP server running on stdio111');
   }
 }
 
 const token = process.env.API_TOKEN || '';
-console.log('token', token);
+
 const server = new GologinMcpServer(token);
 server.run().catch(console.error); 

@@ -2,3 +2,4 @@ dist
 node_modules
 .npmrc
 .wrangler
+.DS_Store
