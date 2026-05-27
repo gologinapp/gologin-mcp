@@ -74,7 +74,7 @@ export class MyMCP extends McpAgent {
   }
 
   private async loadApiSpec(): Promise<void> {
-    const url = 'https://docs-download.gologin.com/openapi-test.json';
+    const url = 'https://docs-download.gologin.com/openapi.json';
 
     const response = await fetch(url);
     if (!response.ok) {
