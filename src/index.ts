@@ -53,7 +53,7 @@ class GologinMcpServer {
           for (const [method, operation] of Object.entries(pathItem)) {
             if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(method) && operation) {
               const op = operation as OpenAPIV3.OperationObject;
-              const toolName = `${method}${path.replace('browser', 'profile').replace(/[^a-zA-Z0-9]+/g, '_')}`;
+              const toolName = `${method}${path.replace('browser', 'profile').replace(/[^a-zA-Z0-9]+/g, '_').replace(/_+$/, '')}`;
               const inputSchema = this.buildInputSchema(op, path);
 
               tools.push({
