@@ -41,6 +41,10 @@ class GologinMcpServer {
     // this.setupHandlers();
   }
 
+  private generateToolName(method: string, path: string): string {
+    return `${method}${path.replace('browser', 'profile').replace(/[^a-zA-Z0-9]+/g, '_').replace(/_+$/, '')}`;
+  }
+
   private async setupHandlers(): Promise<void> {
     await this.loadApiSpec();
 
@@ -53,7 +57,7 @@ class GologinMcpServer {
           for (const [method, operation] of Object.entries(pathItem)) {
             if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(method) && operation) {
               const op = operation as OpenAPIV3.OperationObject;
-              const toolName = `${method}${path.replace('browser', 'profile').replace(/[^a-zA-Z0-9]+/g, '_').replace(/_+$/, '')}`;
+              const toolName = this.generateToolName(method, path);
               const inputSchema = this.buildInputSchema(op, path);
 
               tools.push({
@@ -106,7 +110,7 @@ class GologinMcpServer {
       for (const [method, op] of Object.entries(pathItem)) {
         if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(method) && op) {
           const opObj = op as OpenAPIV3.OperationObject;
-          const generatedToolName = opObj.operationId || `${method}_${apiPath.replace(/[^a-zA-Z0-9]/g, '_')}`;
+          const generatedToolName = this.generateToolName(method, apiPath);
           if (generatedToolName === toolName) {
             operation = opObj;
             path = apiPath;
@@ -468,7 +472,7 @@ class GologinMcpServer {
       for (const [method, op] of Object.entries(pathItem)) {
         if (['get', 'post', 'put', 'delete', 'patch', 'head', 'options'].includes(method) && op) {
           const opObj = op as OpenAPIV3.OperationObject;
-          const generatedToolName = `${method}${path.replace('browser', 'profile').replace(/[^a-zA-Z0-9]/g, '_')}`;
+          const generatedToolName = this.generateToolName(method, path);
 
           if (generatedToolName === toolName) {
             targetPath = path;
