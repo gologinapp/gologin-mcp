@@ -1,13 +1,16 @@
 {
   "name": "gologin-mcp",
-  "version": "0.0.11",
-  "description": "MCP server that connects to the GoLogin API",
+  "version": "0.0.13",
+  "description": "MCP server for managing GoLogin browser profiles, proxies, fingerprints and cloud browser sessions through AI conversations",
   "main": "dist/index.js",
+  "files": [
+    "dist/index.js"
+  ],
   "bin": {
     "gologin-mcp": "dist/index.js"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=22.0.0"
   },
   "type": "module",
   "scripts": {
@@ -16,7 +19,9 @@
     "dev": "tsc --watch & node --watch dist/index.js",
     "test": "npm run build && node test-client.js",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build"
+    "check:package": "node scripts/check-package.mjs",
+    "release:check": "npm run build && npm run check:package",
+    "prepublishOnly": "npm run clean && npm run release:check"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.13.1",
@@ -36,11 +41,26 @@
     "anti-detect browser",
     "gologin",
     "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "browser",
+    "browser-automation",
+    "antidetect-browser",
+    "proxy",
+    "ai-agent",
     "openapi",
     "api-tools",
     "swagger",
     "typescript"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gologinapp/gologin-mcp.git"
+  },
+  "homepage": "https://github.com/gologinapp/gologin-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/gologinapp/gologin-mcp/issues"
+  },
   "author": "",
   "license": "MIT"
 }

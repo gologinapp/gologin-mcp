@@ -3,6 +3,7 @@
     "gologin-mcp": {
       "command": "npx",
       "args": [
+        "-y",
         "gologin-mcp"
       ],
       "env": {

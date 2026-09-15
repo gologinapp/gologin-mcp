@@ -1,138 +1,157 @@
-# GoLogin MCP Server
+# GoLogin MCP Server for AI Agents
 
-Manage your GoLogin browser profiles and automation directly through AI conversations. This MCP server connects to the GoLogin API, letting you create, configure, and control browser profiles using natural language.
+[![npm version](https://img.shields.io/npm/v/gologin-mcp)](https://www.npmjs.com/package/gologin-mcp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-<a href="https://glama.ai/mcp/servers/@gologinapp/gologin-mcp">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/@gologinapp/gologin-mcp/badge" alt="GoLogin MCP server" />
-</a>
+Manage GoLogin browser profiles, proxies, fingerprints, folders, and cloud browser sessions through AI conversations. This Model Context Protocol (MCP) server connects your AI client to the GoLogin API.
+
+## Quickstart
+
+You need Node.js 22 or newer, an active GoLogin account, and a GoLogin API token. Node.js 22 and 24 LTS have been tested on macOS Apple Silicon.
+
+1. Sign in to your [GoLogin account](https://app.gologin.com/), open **API & MCP**, and generate a token in the **API** tab.
+2. Add this configuration to your MCP client, replacing the token placeholder. Merge it into any existing `mcpServers` configuration.
+
+```json
+{
+  "mcpServers": {
+    "gologin-mcp": {
+      "command": "npx",
+      "args": ["-y", "gologin-mcp"],
+      "env": {
+        "API_TOKEN": "your-gologin-api-token-here"
+      }
+    }
+  }
+}
+```
+
+3. Restart or reload your client's MCP connection, then ask: **"Show me my GoLogin profiles."**
+
+The client starts the server automatically. `-y` lets npm install the package without an interactive confirmation. This server reads `API_TOKEN`; the `GOLOGIN_TOKEN` variable used by other GoLogin CLIs is not an alias here.
+
+For a terminal startup check, with `API_TOKEN` already set in your environment:
+
+```bash
+npx -y gologin-mcp
+```
+
+The server communicates over standard input/output (stdio) and waits for an MCP client. It does not open a browser or provide an interactive command prompt by itself.
 
 ## What You Can Do
 
-With GoLogin MCP Server, you can:
+- Create, read, update, delete, and organize browser profiles.
+- Configure profile proxies and refresh browser fingerprints.
+- Manage folders and their profile membership.
+- Read account information.
+- Start and stop browser profiles in the GoLogin cloud.
 
-- **Manage browser profiles** - Create, update, delete, and list your browser profiles
-- **Configure proxies** - Set up and modify proxy settings for your profiles
-- **Handle fingerprints** - Customize browser fingerprints and user agents
-- **Manage folders** - Organize your profiles into folders
-- **Account information** - Check your subscription status and usage
+Cloud startup returns a connection URL. This server does not expose page navigation, click, form-filling, or local Orbita launch tools. For page automation, use a separate browser automation client or the [GoLogin Agent Browser CLI](https://github.com/GologinLabs/agent-browser).
 
-### Example Use Cases
+The MCP process runs locally; GoLogin API requests and cloud browser sessions require network access. Cloud availability and API operations depend on your account permissions and plan.
 
-- "Create a new browser profile with a US proxy"
-- "Show me all my browser profiles"
-- "Update the proxy settings for my profile"
-- "Delete old profiles I no longer need"
-- "Check my GoLogin account status"
-- "Create a folder to organize my profiles"
+## Tools
+
+Tool names are generated from the HTTP method and path in the [GoLogin OpenAPI specification](https://docs-download.gologin.com/openapi-test.json), which the server loads at startup. The following is a selection of available tools, not a fixed list of aliases. Query `tools/list` in your MCP client for the current names and input schemas.
+
+| Tool | Description |
+| --- | --- |
+| `get_profile_v2` | List and search profiles, with pagination and folder filters |
+| `post_profile_custom` | Create a profile with partial settings such as name, OS, and proxy |
+| `get_profile_id` | Read a profile by ID |
+| `put_profile_id_custom` | Update selected profile settings |
+| `delete_profile` | Delete the profiles listed in `profilesToDelete` |
+| `patch_profile_proxy_many_v2` | Configure proxies for one or more profiles |
+| `patch_profile_fingerprints` | Refresh fingerprints for the profiles listed in `browsersIds` |
+| `get_proxy_v2` | List proxies |
+| `get_folders` | List folders |
+| `post_folders_folder` | Create a folder by name |
+| `patch_folders_folder` | Add or remove profiles from a folder |
+| `delete_folders_folder` | Delete a folder by name |
+| `post_profile_id_web` | Start a profile in the cloud and return a connection URL |
+| `delete_profile_id_web` | Stop a cloud profile |
+| `get_user` | Read account information |
+
+For example, an MCP client can send this `tools/call` request to read a profile:
+
+```json
+{
+  "name": "get_profile_id",
+  "arguments": {
+    "id": "your-profile-id"
+  }
+}
+```
+
+Arguments follow each tool's input schema. Path and query parameters, and request body fields, are passed as top-level arguments.
+
+## Example Prompts
+
+- "Show me my GoLogin profiles."
+- "Create a Linux profile named 'Research'."
+- "Rename profile PROFILE_ID to 'Research US'."
+- "Update profile PROFILE_ID to use these proxy settings."
+- "Refresh the fingerprint for profile PROFILE_ID."
+- "Create a folder named 'Research' and add profile PROFILE_ID to it."
+- "Start profile PROFILE_ID in the cloud and give me the connection URL."
+- "Stop the cloud session for profile PROFILE_ID."
+- "Show my GoLogin account information."
 
 ## Setup for MCP Clients
 
 ### Claude Desktop
 
-**How to connect Gologin MCP with Claude Desktop:**
-   
-   
+Open **Settings > Developer > Edit Config** and add the Quickstart configuration to `claude_desktop_config.json`. Fully quit and restart Claude Desktop, then check that `gologin-mcp` and its tools are available.
 
-### Step 1: Access Claude Desktop settings 
-Open your Claude Desktop application. In the top menu bar, click on 'Claude' and then select 'Settings...'.
-
-<img width="380" src='https://images.gologin.com/claude-1.png' />
-
-### Step 2: Navigate to developer settings
-In the Settings window, on the left sidebar, click on 'Developer'. This section manages connections via the Model Context Protocol. Click the 'Edit Config' button to open the configuration file.
-
-<img width="380" src='https://images.gologin.com/claude-2.png' />
-
-### Step 3: Locate claude_desktop_config.json
-This action will open the claude_desktop_config.json file in your default text editor. This file is where you configure your MCP servers.
-
-<img width="380" src='https://images.gologin.com/claude-3.png' />
-
-### Step 4: Add Gologin MCP configuration
-You need to add the GoLogin MCP server configuration details within the mcpservers object. Carefully paste the following JSON snippet into your claude_desktop_config.json file.
-Important: Replace 'your-gologin-api-token-here' with your actual GoLogin API token. Ensure the JSON structure remains correct after pasting.
-
-<img width="380" src='https://images.gologin.com/claude-4.png' />
-
-   ```json
-   {
-     "mcpServers": {
-       "gologin-mcp": {
-         "command": "npx",
-         "args": ["gologin-mcp"],
-         "env": {
-           "API_TOKEN": "your-gologin-api-token-here"
-         }
-       }
-     }
-   }
-   ```
-
-
-
-
-### Step 5: Verify connection in connectors
-After saving the claude_desktop_config.json file, it is recommended to restart Claude Desktop to ensure the new configuration is loaded.
-Once Claude restarts, navigate back to its 'Settings'. Under the 'Connectors' section (which might be under 'General' or 'Extensions' depending on your Claude version), you should now see 'gologin-mcp LOCAL' listed as a connected service. This indicates a successful integration.
-
-<img width="380" src='https://images.gologin.com/claude-5.png' />
-
-Congratulations! You have successfully connected GoLogin MCP with Claude Desktop. Your AI assistant can now leverage Gologin profiles for various tasks.
-
+See the [official local MCP setup guide](https://modelcontextprotocol.io/docs/develop/connect-local-servers) for configuration paths and troubleshooting.
 
 ### Cursor
 
-1. **Configure in Cursor:**
-   
-   Add to your Cursor MCP configuration:
-   ```json
-   {
-     "mcpServers": {
-       "gologin-mcp": {
-         "command": "npx",
-         "args": ["gologin-mcp"],
-         "env": {
-           "API_TOKEN": "your-gologin-api-token-here"
-         }
-       }
-     }
-   }
-   ```
+Add the Quickstart configuration to `~/.cursor/mcp.json` for your user account, or `.cursor/mcp.json` for a project. Reload the MCP connection and enable the server's tools. Keep configurations containing API tokens out of version control.
+
+See [Cursor's MCP documentation](https://cursor.com/docs/context/mcp) for current client settings.
 
 ### Other MCP Clients
 
-For other MCP-compatible clients, use the same configuration pattern with the appropriate config file location for your client.
+Use a client that supports local stdio MCP servers. Configure `npx` as the command, `-y` and `gologin-mcp` as its arguments, and `API_TOKEN` in the server environment. The configuration format and location depend on the client.
 
-## Getting Your API Token
+## Troubleshooting
 
-1. Log in to your [GoLogin account](https://app.gologin.com/)
-2. Go to API settings
-3. Generate or copy your API token
-4. Use this token in the configuration above
+- **Server does not connect:** check that Node.js and `npx` are available to the client, then restart its MCP connection. The server also needs access to `docs-download.gologin.com` to load its tool definitions.
+- **API returns `401 Unauthorized`:** check the `API_TOKEN` passed to the server and the token's validity in GoLogin. Restart the connection after changing it.
+- **Tool name not found:** refresh the tool list and use the names returned by `tools/list`; names such as `list_profiles` and `start_browser` are not built-in aliases.
+- **Cloud startup fails:** check the API response and your account's cloud access. Local MCP startup does not itself start Orbita on your computer.
 
-## Example Workflow
+## Development
 
-1. **Check your account:**
-   "What's my GoLogin account status?"
+```bash
+git clone https://github.com/gologinapp/gologin-mcp.git
+cd gologin-mcp
+npm ci
+npm run build
+```
 
-2. **Create a profile:**
-   "Create a new browser profile with Chrome browser and a US proxy"
+To run your local build with `API_TOKEN` already configured:
 
-3. **Manage profiles:**
-   "Show me all my profiles"
-   "Update the proxy for profile ID 123 to use a UK proxy"
-   "Delete the profile named 'test-profile'"
+```bash
+node dist/index.js
+```
 
-4. **Organize profiles:**
-   "Create a folder called 'Social Media Accounts'"
-   "Move profile XYZ to the Social Media Accounts folder"
+Before publishing, run:
 
-5. **Control browsers:**
-   "Start a browser session for my profile"
-   "Stop all running browser sessions"
+```bash
+npm run release:check
+```
 
-## Requirements
+The package includes only the built server, package metadata, README, and license. The release check verifies this allowlist so local state, databases, credentials, and development files cannot be included as extra files. `npm publish` runs the same check automatically.
 
-- Node.js 18 or higher
-- Valid GoLogin API token
-- Active GoLogin account
+## Links
+
+- [GoLogin](https://gologin.com/)
+- [GoLogin API documentation](https://gologin.com/docs/api-reference/introduction/quickstart)
+- [npm package](https://www.npmjs.com/package/gologin-mcp)
+- [Glama directory](https://glama.ai/mcp/servers/@gologinapp/gologin-mcp)
+
+## License
+
+[MIT](LICENSE), copyright GoLogin.
