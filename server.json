@@ -1,0 +1,39 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.gologinapp/gologin-mcp",
+  "title": "GoLogin MCP",
+  "description": "Manage GoLogin profiles, proxies, fingerprints, folders and cloud browser sessions.",
+  "repository": {
+    "url": "https://github.com/gologinapp/gologin-mcp",
+    "source": "github"
+  },
+  "version": "0.0.13",
+  "websiteUrl": "https://github.com/gologinapp/gologin-mcp#readme",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "gologin-mcp",
+      "version": "0.0.13",
+      "runtimeHint": "npx",
+      "runtimeArguments": [
+        {
+          "type": "named",
+          "name": "-y"
+        }
+      ],
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "API_TOKEN",
+          "description": "GoLogin API token from the API & MCP section of your GoLogin account.",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

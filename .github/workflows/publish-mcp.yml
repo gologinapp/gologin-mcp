@@ -1,0 +1,49 @@
+name: Publish to MCP Registry
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: publish-mcp-registry
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.repository == 'gologinapp/gologin-mcp' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+
+      - name: Verify the already published npm package
+        run: node scripts/check-registry.mjs --published
+
+      - name: Install pinned publisher
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          RELEASE=https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1
+          curl --fail --silent --show-error --location "$RELEASE/mcp-publisher_linux_amd64.tar.gz" --output mcp-publisher_linux_amd64.tar.gz
+          curl --fail --silent --show-error --location "$RELEASE/registry_1.8.1_checksums.txt" --output checksums.txt
+          grep ' mcp-publisher_linux_amd64.tar.gz$' checksums.txt | sha256sum --check --strict
+          tar -xzf mcp-publisher_linux_amd64.tar.gz mcp-publisher
+
+      - name: Authenticate with GitHub OIDC
+        run: '"$RUNNER_TEMP/mcp-publisher" login github-oidc'
+
+      - name: Publish Registry metadata
+        run: '"$RUNNER_TEMP/mcp-publisher" publish server.json'

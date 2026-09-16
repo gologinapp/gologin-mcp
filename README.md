@@ -145,6 +145,12 @@ npm run release:check
 
 The package includes only the built server, package metadata, README, and license. The release check verifies this allowlist so local state, databases, credentials, and development files cannot be included as extra files. `npm publish` runs the same check automatically.
 
+### MCP Registry Releases
+
+`server.json` describes this server for the [official MCP Registry](https://registry.modelcontextprotocol.io/) under `io.github.gologinapp/gologin-mcp`. The npm package declares the same identifier in `mcpName`.
+
+Keep the versions in `package.json`, `package-lock.json`, and `server.json` aligned. Publish the checked npm package first, then run **Publish to MCP Registry** from the repository's **Actions** tab on `main`. The workflow verifies that the npm release contains the correct Registry identifier and authenticates using GitHub OIDC, without a separate Registry token. It does not publish to npm.
+
 ## Links
 
 - [GoLogin](https://gologin.com/)

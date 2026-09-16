@@ -1,6 +1,7 @@
 {
   "name": "gologin-mcp",
   "version": "0.0.13",
+  "mcpName": "io.github.gologinapp/gologin-mcp",
   "description": "MCP server for managing GoLogin browser profiles, proxies, fingerprints and cloud browser sessions through AI conversations",
   "main": "dist/index.js",
   "files": [
@@ -20,7 +21,8 @@
     "test": "npm run build && node test-client.js",
     "clean": "rm -rf dist",
     "check:package": "node scripts/check-package.mjs",
-    "release:check": "npm run build && npm run check:package",
+    "check:registry": "node scripts/check-registry.mjs",
+    "release:check": "npm run build && npm run check:package && npm run check:registry",
     "prepublishOnly": "npm run clean && npm run release:check"
   },
   "dependencies": {
