@@ -2,7 +2,7 @@
   "name": "gologin-mcp",
   "version": "0.0.13",
   "mcpName": "io.github.gologinapp/gologin-mcp",
-  "description": "MCP server for managing GoLogin browser profiles, proxies, fingerprints and cloud browser sessions through AI conversations",
+  "description": "MCP server for managing Gologin browser profiles, proxies, fingerprints and cloud browser sessions through AI conversations",
   "main": "dist/index.js",
   "files": [
     "dist/index.js"
