@@ -1,15 +1,16 @@
-# GoLogin MCP Server for AI Agents
+# Gologin MCP Server for AI Agents
 
 [![npm version](https://img.shields.io/npm/v/gologin-mcp)](https://www.npmjs.com/package/gologin-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![gologinapp/gologin-mcp MCP server](https://glama.ai/mcp/servers/gologinapp/gologin-mcp/badges/score.svg)](https://glama.ai/mcp/servers/gologinapp/gologin-mcp)
 
-Manage GoLogin browser profiles, proxies, fingerprints, folders, and cloud browser sessions through AI conversations. This Model Context Protocol (MCP) server connects your AI client to the GoLogin API.
+Manage Gologin browser profiles, proxies, fingerprints, folders, and cloud browser sessions through AI conversations. This Model Context Protocol (MCP) server connects your AI client to the Gologin API.
 
 ## Quickstart
 
-You need Node.js 22 or newer, an active GoLogin account, and a GoLogin API token. Node.js 22 and 24 LTS have been tested on macOS Apple Silicon.
+You need Node.js 22 or newer, an active Gologin account, and a Gologin API token. Node.js 22 and 24 LTS have been tested on macOS Apple Silicon.
 
-1. Sign in to your [GoLogin account](https://app.gologin.com/), open **API & MCP**, and generate a token in the **API** tab.
+1. Sign in to your [Gologin account](https://app.gologin.com/), open **API & MCP**, and generate a token in the **API** tab.
 2. Add this configuration to your MCP client, replacing the token placeholder. Merge it into any existing `mcpServers` configuration.
 
 ```json
@@ -26,9 +27,9 @@ You need Node.js 22 or newer, an active GoLogin account, and a GoLogin API token
 }
 ```
 
-3. Restart or reload your client's MCP connection, then ask: **"Show me my GoLogin profiles."**
+3. Restart or reload your client's MCP connection, then ask: **"Show me my Gologin profiles."**
 
-The client starts the server automatically. `-y` lets npm install the package without an interactive confirmation. This server reads `API_TOKEN`; the `GOLOGIN_TOKEN` variable used by other GoLogin CLIs is not an alias here.
+The client starts the server automatically. `-y` lets npm install the package without an interactive confirmation. This server reads `API_TOKEN`; the `GOLOGIN_TOKEN` variable used by other Gologin CLIs is not an alias here.
 
 For a terminal startup check, with `API_TOKEN` already set in your environment:
 
@@ -44,15 +45,15 @@ The server communicates over standard input/output (stdio) and waits for an MCP 
 - Configure profile proxies and refresh browser fingerprints.
 - Manage folders and their profile membership.
 - Read account information.
-- Start and stop browser profiles in the GoLogin cloud.
+- Start and stop browser profiles in the Gologin cloud.
 
-Cloud startup returns a connection URL. This server does not expose page navigation, click, form-filling, or local Orbita launch tools. For page automation, use a separate browser automation client or the [GoLogin Agent Browser CLI](https://github.com/GologinLabs/agent-browser).
+Cloud startup returns a connection URL. This server does not expose page navigation, click, form-filling, or local Orbita launch tools. For page automation, use a separate browser automation client or the [Gologin Agent Browser CLI](https://github.com/GologinLabs/agent-browser).
 
-The MCP process runs locally; GoLogin API requests and cloud browser sessions require network access. Cloud availability and API operations depend on your account permissions and plan.
+The MCP process runs locally; Gologin API requests and cloud browser sessions require network access. Cloud availability and API operations depend on your account permissions and plan.
 
 ## Tools
 
-Tool names are generated from the HTTP method and path in the [GoLogin OpenAPI specification](https://docs-download.gologin.com/openapi-test.json), which the server loads at startup. The following is a selection of available tools, not a fixed list of aliases. Query `tools/list` in your MCP client for the current names and input schemas.
+Tool names are generated from the HTTP method and path in the [Gologin OpenAPI specification](https://docs-download.gologin.com/openapi-test.json), which the server loads at startup. The following is a selection of available tools, not a fixed list of aliases. Query `tools/list` in your MCP client for the current names and input schemas.
 
 | Tool | Description |
 | --- | --- |
@@ -87,7 +88,7 @@ Arguments follow each tool's input schema. Path and query parameters, and reques
 
 ## Example Prompts
 
-- "Show me my GoLogin profiles."
+- "Show me my Gologin profiles."
 - "Create a Linux profile named 'Research'."
 - "Rename profile PROFILE_ID to 'Research US'."
 - "Update profile PROFILE_ID to use these proxy settings."
@@ -95,7 +96,7 @@ Arguments follow each tool's input schema. Path and query parameters, and reques
 - "Create a folder named 'Research' and add profile PROFILE_ID to it."
 - "Start profile PROFILE_ID in the cloud and give me the connection URL."
 - "Stop the cloud session for profile PROFILE_ID."
-- "Show my GoLogin account information."
+- "Show my Gologin account information."
 
 ## Setup for MCP Clients
 
@@ -118,7 +119,7 @@ Use a client that supports local stdio MCP servers. Configure `npx` as the comma
 ## Troubleshooting
 
 - **Server does not connect:** check that Node.js and `npx` are available to the client, then restart its MCP connection. The server also needs access to `docs-download.gologin.com` to load its tool definitions.
-- **API returns `401 Unauthorized`:** check the `API_TOKEN` passed to the server and the token's validity in GoLogin. Restart the connection after changing it.
+- **API returns `401 Unauthorized`:** check the `API_TOKEN` passed to the server and the token's validity in Gologin. Restart the connection after changing it.
 - **Tool name not found:** refresh the tool list and use the names returned by `tools/list`; names such as `list_profiles` and `start_browser` are not built-in aliases.
 - **Cloud startup fails:** check the API response and your account's cloud access. Local MCP startup does not itself start Orbita on your computer.
 
@@ -153,11 +154,11 @@ Keep the versions in `package.json`, `package-lock.json`, and `server.json` alig
 
 ## Links
 
-- [GoLogin](https://gologin.com/)
-- [GoLogin API documentation](https://gologin.com/docs/api-reference/introduction/quickstart)
+- [Gologin](https://gologin.com/)
+- [Gologin API documentation](https://gologin.com/docs/api-reference/introduction/quickstart)
 - [npm package](https://www.npmjs.com/package/gologin-mcp)
 - [Glama directory](https://glama.ai/mcp/servers/@gologinapp/gologin-mcp)
 
 ## License
 
-[MIT](LICENSE), copyright GoLogin.
+[MIT](LICENSE), copyright Gologin.
